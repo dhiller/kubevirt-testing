@@ -8,7 +8,7 @@ disk_manifest_file="${BIN_DIR:?}/disk-rhel.yaml"
 kubevirt_testing_configuration_file="${BIN_DIR:?}/kubevirt-testing-configuration.json"
 
 function setup_resources() {
-    cat <<EOF > "$kubevirt_testing_configuration_file"
+    cat <<EOF >"$kubevirt_testing_configuration_file"
 {
   "storageClassLocal": "managed-premium",
   "storageClassHostPath": "managed-premium",
@@ -20,7 +20,7 @@ function setup_resources() {
 }
 EOF
 
-    cat <<EOF > "$disk_manifest_file"
+    cat <<EOF >"$disk_manifest_file"
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -37,6 +37,31 @@ spec:
     path: /
   storageClassName: managed-premium
 EOF
+}
+
+function enable_cpu_manager() {
+    oc patch machineconfigpool worker --type merge -p '{"metadata": {"labels": { "custom-kubelet": "cpumanager-enabled" }}}'
+    oc create -f - <<EOF
+apiVersion: machineconfiguration.openshift.io/v1
+kind: KubeletConfig
+metadata:
+  name: cpumanager-enabled
+spec:
+  machineConfigPoolSelector:
+    matchLabels:
+      custom-kubelet: cpumanager-enabled
+  kubeletConfig:
+     cpuManagerPolicy: static
+     cpuManagerReconcilePeriod: 5s
+EOF
+}
+
+function wait_for_cpumanager_label() {
+    until [ $(oc get nodes --no-headers -l kubevirt.io/schedulable=true,cpumanager=true | wc -l) -gt 1 ]; do
+        echo "Waiting until cpu manager is active"
+        sleep 10
+    done
+    echo "cpu manager is active"
 }
 
 function test_kubevirt_release() {
@@ -251,4 +276,3 @@ function run_tests() {
 
 export PATH="$BIN_DIR:$PATH"
 eval "$@"
-
