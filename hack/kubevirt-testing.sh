@@ -64,10 +64,9 @@ function wait_for_cpumanager_label() {
     echo "cpu manager is active"
 }
 
-function test_kubevirt_release() {
+function test_release() {
     release="$(get_release_tag_for_xy "$1")"
     export DOCKER_TAG="$release"
-    deploy_release "$release"
     run_tests
 }
 
@@ -94,8 +93,9 @@ function undeploy_latest_cdi_release() {
     oc delete --ignore-not-found=true -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-operator.yaml"
 }
 
-function deploy_release() {
-    local release="$1"
+function deploy_release_test_setup() {
+    release="$(get_release_tag_for_xy "$1")"
+    export DOCKER_TAG="$release"
 
     setup_resources
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
@@ -118,8 +118,9 @@ function deploy_release() {
     until wait_on_cdi_ready && wait_on_kubevirt_ready; do sleep 5; done
 }
 
-function undeploy_release() {
-    local release="$1"
+function undeploy_release_test_setup() {
+    release="$(get_release_tag_for_xy "$1")"
+    export DOCKER_TAG="$release"
 
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
 
@@ -138,23 +139,25 @@ function undeploy_release() {
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 }
 
-function test_kubevirt_nightly() {
+function get_latest_release_tag_for_kubevirt_nightly() {
     local release_url
-    release_date=$(get_latest_release_date_for_kubevirt_nightly)
-    release_url="$(get_release_url_for_kubevirt_nightly "$release_date")"
+    release_date=$(get_latest_release_date_for_nightly)
+    release_url="$(get_release_url_for_nightly "$release_date")"
 
+    echo "$(get_release_tag_for_nightly "$release_url" "$release_date")"
+}
+
+function test_nightly() {
     export DOCKER_PREFIX='quay.io/kubevirt'
-    DOCKER_TAG="$(get_release_tag_for_kubevirt_nightly "$release_url" "$release_date")"
+    DOCKER_TAG="$(get_latest_release_tag_for_kubevirt_nightly)"
     export DOCKER_TAG
-
-    deploy_kubevirt_nightly_test_setup
     run_tests
 }
 
-function deploy_kubevirt_nightly_test_setup() {
+function deploy_nightly_test_setup() {
     local release_url
-    release_date=$(get_latest_release_date_for_kubevirt_nightly)
-    release_url="$(get_release_url_for_kubevirt_nightly "$release_date")"
+    release_date=$(get_latest_release_date_for_nightly)
+    release_url="$(get_release_url_for_nightly "$release_date")"
 
     setup_resources
 
@@ -183,10 +186,10 @@ function wait_on_kubevirt_ready() {
     oc wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
 }
 
-function undeploy_kubevirt_nightly_test_setup() {
+function undeploy_nightly_test_setup() {
     local release_url
-    release_date=$(get_latest_release_date_for_kubevirt_nightly)
-    release_url="$(get_release_url_for_kubevirt_nightly "$release_date")"
+    release_date=$(get_latest_release_date_for_nightly)
+    release_url="$(get_release_url_for_nightly "$release_date")"
 
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 
@@ -202,20 +205,20 @@ function undeploy_kubevirt_nightly_test_setup() {
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 }
 
-function get_release_tag_for_kubevirt_nightly() {
+function get_release_tag_for_nightly() {
     release_url="$1"
     release_date="$2"
     commit=$(curl -L "${release_url}/commit")
     echo "${release_date}_$(echo "${commit}" | cut -c 1-9)"
 }
 
-function get_release_url_for_kubevirt_nightly() {
+function get_release_url_for_nightly() {
     release_base_url="$gcsweb_base_url/devel/nightly/release/kubevirt/kubevirt"
     release_date="$1"
     echo "${release_base_url}/${release_date}"
 }
 
-function get_latest_release_date_for_kubevirt_nightly() {
+function get_latest_release_date_for_nightly() {
     release_base_url="$gcsweb_base_url/devel/nightly/release/kubevirt/kubevirt"
     release_date=$(curl -L "${release_base_url}/latest")
     echo "${release_date}"
