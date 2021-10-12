@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -exuo pipefail
 
+export BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
+export PATH="${BIN_DIR}:${PATH}"
+
 gcsweb_base_url="https://gcsweb.ci.kubevirt.io/gcs/kubevirt-prow"
 testing_resources=(disks-images-provider.yaml local-block-storage.yaml rbac-for-testing.yaml uploadproxy-nodeport.yaml)
 
@@ -67,6 +70,13 @@ function wait_for_cpumanager_label() {
 function test_release() {
     release="$(get_release_tag_for_xy "$1")"
     export DOCKER_TAG="$release"
+    export DOCKER_PREFIX=${DOCKER_PREFIX:?}
+
+    tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
+
+    curl -Lo "$BIN_DIR/tests.test" "${tagged_release_url}/tests.test"
+    chmod +x "$BIN_DIR/tests.test"
+
     run_tests
 }
 
@@ -95,15 +105,11 @@ function undeploy_latest_cdi_release() {
 
 function deploy_release_test_setup() {
     release="$(get_release_tag_for_xy "$1")"
-    export DOCKER_TAG="$release"
 
     setup_resources
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
 
     oc create -f "$disk_manifest_file"
-
-    curl -Lo "$BIN_DIR/tests.test" "${tagged_release_url}/tests.test"
-    chmod +x "$BIN_DIR/tests.test"
 
     curl -L "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
     curl -L "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
@@ -120,7 +126,8 @@ function deploy_release_test_setup() {
 
 function undeploy_release_test_setup() {
     release="$(get_release_tag_for_xy "$1")"
-    export DOCKER_TAG="$release"
+
+    setup_resources
 
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
 
@@ -140,7 +147,6 @@ function undeploy_release_test_setup() {
 }
 
 function get_latest_release_tag_for_kubevirt_nightly() {
-    local release_url
     release_date=$(get_latest_release_date_for_nightly)
     release_url="$(get_release_url_for_nightly "$release_date")"
 
@@ -148,6 +154,14 @@ function get_latest_release_tag_for_kubevirt_nightly() {
 }
 
 function test_nightly() {
+    setup_resources
+
+    release_date=$(get_latest_release_date_for_nightly)
+    release_url="$(get_release_url_for_nightly "$release_date")"
+
+    curl -Lo "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
+    chmod +x "$BIN_DIR/tests.test"
+
     export DOCKER_PREFIX='quay.io/kubevirt'
     DOCKER_TAG="$(get_latest_release_tag_for_kubevirt_nightly)"
     export DOCKER_TAG
@@ -155,7 +169,6 @@ function test_nightly() {
 }
 
 function deploy_nightly_test_setup() {
-    local release_url
     release_date=$(get_latest_release_date_for_nightly)
     release_url="$(get_release_url_for_nightly "$release_date")"
 
@@ -187,9 +200,10 @@ function wait_on_kubevirt_ready() {
 }
 
 function undeploy_nightly_test_setup() {
-    local release_url
     release_date=$(get_latest_release_date_for_nightly)
     release_url="$(get_release_url_for_nightly "$release_date")"
+
+    setup_resources
 
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 
@@ -232,7 +246,7 @@ function get_path_or_empty_string_for_cmd() {
 }
 
 function run_tests() {
-    mkdir -p "$ARTIFACT_DIR"
+    mkdir -p "${ARTIFACT_DIR:?}"
     # required to be set for test binary
     export ARTIFACTS=${ARTIFACT_DIR}
 
@@ -256,10 +270,10 @@ function run_tests() {
 
     tests.test -v=5 \
         -config=${kubevirt_testing_configuration} \
-        -kubeconfig=${KUBECONFIG} \
-        -container-tag=${DOCKER_TAG} \
+        -kubeconfig=${KUBECONFIG:?} \
+        -container-tag=${DOCKER_TAG:?} \
         -container-tag-alt= \
-        -container-prefix=${DOCKER_PREFIX} \
+        -container-prefix=${DOCKER_PREFIX:?} \
         -image-prefix-alt=-kv \
         -oc-path=${OC_PATH} \
         -kubectl-path=${KUBECTL_PATH} \
