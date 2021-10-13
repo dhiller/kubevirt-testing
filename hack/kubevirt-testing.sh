@@ -68,6 +68,8 @@ function wait_for_cpumanager_label() {
 }
 
 function test_release() {
+    setup_resources
+
     release="$(get_release_tag_for_xy "$1")"
     export DOCKER_TAG="$release"
     export DOCKER_PREFIX=${DOCKER_PREFIX:?}
@@ -278,6 +280,9 @@ function run_tests() {
     elif [ -n "$KUBEVIRT_TESTS_FOCUS" ]; then
         additional_test_args="$KUBEVIRT_TESTS_FOCUS"
     fi
+    if [[ ! "$DOCKER_TAG" =~ v0.3[46].[0-9]+ ]]; then
+        additional_test_args="$additional_test_args -apply-default-e2e-configuration=true"
+    fi
     kubevirt_testing_configuration=${KUBEVIRT_TESTING_CONFIGURATION:-${kubevirt_testing_configuration_file}}
     set -u
 
@@ -300,8 +305,7 @@ function run_tests() {
         -installed-namespace=kubevirt \
         -previous-release-tag= \
         -previous-release-registry=quay.io/kubevirt \
-        -deploy-testing-infra=false \
-        -apply-default-e2e-configuration=true
+        -deploy-testing-infra=false
 }
 
 export PATH="$BIN_DIR:$PATH"
