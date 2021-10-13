@@ -278,7 +278,7 @@ function run_tests() {
         -oc-path=${OC_PATH} \
         -kubectl-path=${KUBECTL_PATH} \
         -gocli-path="$(pwd)/cluster-up/cli.sh" \
-        -test.timeout 420m \
+        -test.timeout 3h30m \
         -ginkgo.noColor \
         -ginkgo.succinct \
         -ginkgo.slowSpecThreshold=60 \
