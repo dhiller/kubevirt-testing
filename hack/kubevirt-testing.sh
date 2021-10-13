@@ -85,7 +85,7 @@ function test_release() {
 function get_release_tag_for_xy() {
     release_xy="$1"
 
-    curl --fail -s https://api.github.com/repos/kubevirt/kubevirt/releases |
+    curl --fail -s 'https://api.github.com/repos/kubevirt/kubevirt/releases?per_page=100' |
         jq -r '(.[].tag_name | select( test("-(rc|alpha|beta)") | not ) )' |
         sort -rV | grep "v$release_xy" | head -1
 }
