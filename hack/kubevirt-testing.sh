@@ -103,6 +103,27 @@ function undeploy_latest_cdi_release() {
     oc delete --ignore-not-found=true -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-operator.yaml"
 }
 
+function deploy_testing_infra() {
+    local testing_infra_url="$1"
+    for testing_resource in "${testing_resources[@]}"; do
+        if curl --fail -Lo "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
+            oc create -f "$BIN_DIR/${testing_resource}"
+        elif [ "$testing_resource" != 'uploadproxy-nodeport.yaml' ]; then
+            echo "required resource $testing_resource in $testing_infra_url missing"
+            exit 1
+        fi
+    done
+}
+
+function undeploy_testing_infra() {
+    local testing_infra_url="$1"
+    for testing_resource in "${testing_resources[@]}"; do
+        if curl --fail -Lo "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
+            oc delete --ignore-not-found=true -f "$BIN_DIR/${testing_resource}"
+        fi
+    done
+}
+
 function deploy_release_test_setup() {
     release="$(get_release_tag_for_xy "$1")"
 
@@ -117,9 +138,7 @@ function deploy_release_test_setup() {
     deploy_latest_cdi_release
 
     testing_infra_url="$gcsweb_base_url/devel/release/kubevirt/kubevirt/${release}/manifests/testing"
-    for testing_resource in "${testing_resources[@]}"; do
-        curl -L "${testing_infra_url}/${testing_resource}" | oc create -f -
-    done
+    deploy_testing_infra "$testing_infra_url"
 
     until wait_on_cdi_ready && wait_on_kubevirt_ready; do sleep 5; done
 }
@@ -134,9 +153,7 @@ function undeploy_release_test_setup() {
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 
     testing_infra_url="$gcsweb_base_url/devel/release/kubevirt/kubevirt/${release}/manifests/testing"
-    for testing_resource in "${testing_resources[@]}"; do
-        curl -L "${testing_infra_url}/${testing_resource}" | oc delete --ignore-not-found=true -f -
-    done
+    undeploy_testing_infra "$testing_infra_url"
 
     undeploy_latest_cdi_release
 
@@ -184,9 +201,7 @@ function deploy_nightly_test_setup() {
 
     deploy_latest_cdi_release
 
-    for testing_resource in "${testing_resources[@]}"; do
-        oc create -f "${release_url}/testing/${testing_resource}"
-    done
+    deploy_testing_infra "${release_url}/testing"
 
     until wait_on_cdi_ready && wait_on_kubevirt_ready; do sleep 5; done
 }
@@ -207,9 +222,7 @@ function undeploy_nightly_test_setup() {
 
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 
-    for testing_resource in "${testing_resources[@]}"; do
-        oc delete --ignore-not-found=true -f "${release_url}/testing/${testing_resource}"
-    done
+    undeploy_testing_infra "$${release_url}/testing"
 
     undeploy_latest_cdi_release
 
