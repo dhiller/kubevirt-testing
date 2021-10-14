@@ -184,7 +184,7 @@ function test_nightly() {
     export DOCKER_PREFIX='quay.io/kubevirt'
     DOCKER_TAG="$(get_latest_release_tag_for_kubevirt_nightly)"
     export DOCKER_TAG
-    run_tests "-skip-shasums-check"
+    run_tests "-skip-shasums-check -skip-dual-stack-test"
 }
 
 function deploy_nightly_test_setup() {
