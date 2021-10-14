@@ -5,7 +5,7 @@ export BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
 
 gcsweb_base_url="https://gcsweb.ci.kubevirt.io/gcs/kubevirt-prow"
-testing_resources=(disks-images-provider.yaml local-block-storage.yaml rbac-for-testing.yaml uploadproxy-nodeport.yaml)
+testing_resources=(disks-images-provider.yaml local-block-storage.yaml rbac-for-testing.yaml uploadproxy-nodeport.yaml kubevirt-config.yaml)
 
 disk_manifest_file="${BIN_DIR:?}/disk-rhel.yaml"
 kubevirt_testing_configuration_file="${BIN_DIR:?}/kubevirt-testing-configuration.json"
@@ -110,7 +110,7 @@ function deploy_testing_infra() {
     for testing_resource in "${testing_resources[@]}"; do
         if curl --fail -Lo "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
             oc create -f "$BIN_DIR/${testing_resource}"
-        elif [ "$testing_resource" != 'uploadproxy-nodeport.yaml' ]; then
+        elif [ "$testing_resource" != 'uploadproxy-nodeport.yaml' ] && [ "$testing_resource" != 'kubevirt-config.yaml' ]; then
             echo "required resource $testing_resource in $testing_infra_url missing"
             exit 1
         fi
