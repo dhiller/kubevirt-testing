@@ -184,7 +184,7 @@ function test_nightly() {
     export DOCKER_PREFIX='quay.io/kubevirt'
     DOCKER_TAG="$(get_latest_release_tag_for_kubevirt_nightly)"
     export DOCKER_TAG
-    run_tests
+    run_tests "-skip-shasums-check"
 }
 
 function deploy_nightly_test_setup() {
@@ -261,6 +261,11 @@ function get_path_or_empty_string_for_cmd() {
 }
 
 function run_tests() {
+    additional_test_args=""
+    if [ "$#" -gt 0 ]; then
+        additional_test_args="$1"
+    fi
+
     mkdir -p "${ARTIFACT_DIR:?}"
     # required to be set for test binary
     export ARTIFACTS=${ARTIFACT_DIR}
@@ -269,19 +274,18 @@ function run_tests() {
     KUBECTL_PATH=$(get_path_or_empty_string_for_cmd kubectl)
 
     set +u
-    additional_test_args=""
     if [ -n "$KUBEVIRT_E2E_SKIP" ] || [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
         if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-            additional_test_args="${additional_test_args} -ginkgo.skip=${KUBEVIRT_E2E_SKIP}"
+            additional_test_args+=" -ginkgo.skip=${KUBEVIRT_E2E_SKIP}"
         fi
         if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-            additional_test_args="${additional_test_args} -ginkgo.focus=${KUBEVIRT_E2E_FOCUS}"
+            additional_test_args+=" -ginkgo.focus=${KUBEVIRT_E2E_FOCUS}"
         fi
     elif [ -n "$KUBEVIRT_TESTS_FOCUS" ]; then
-        additional_test_args="$KUBEVIRT_TESTS_FOCUS"
+        additional_test_args+=" $KUBEVIRT_TESTS_FOCUS"
     fi
     if [[ ! "$DOCKER_TAG" =~ v0.3[46].[0-9]+ ]]; then
-        additional_test_args="$additional_test_args -apply-default-e2e-configuration=true"
+        additional_test_args+=" -apply-default-e2e-configuration=true"
     fi
     kubevirt_testing_configuration=${KUBEVIRT_TESTING_CONFIGURATION:-${kubevirt_testing_configuration_file}}
     set -u
