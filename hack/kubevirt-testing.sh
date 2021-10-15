@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -exuo pipefail
 
+env | grep KUBE
+
 export BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
 
@@ -276,10 +278,10 @@ function run_tests() {
     set +u
     if [ -n "$KUBEVIRT_E2E_SKIP" ] || [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
         if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-            additional_test_args+=" -ginkgo.skip=${KUBEVIRT_E2E_SKIP}"
+            additional_test_args+=" -ginkgo.skip=\"${KUBEVIRT_E2E_SKIP}\""
         fi
         if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
-            additional_test_args+=" -ginkgo.focus=${KUBEVIRT_E2E_FOCUS}"
+            additional_test_args+=" -ginkgo.focus=\"${KUBEVIRT_E2E_FOCUS}\""
         fi
     elif [ -n "$KUBEVIRT_TESTS_FOCUS" ]; then
         additional_test_args+=" $KUBEVIRT_TESTS_FOCUS"
@@ -290,7 +292,7 @@ function run_tests() {
     kubevirt_testing_configuration=${KUBEVIRT_TESTING_CONFIGURATION:-${kubevirt_testing_configuration_file}}
     set -u
 
-    tests.test -v=5 \
+    eval tests.test -v=5 \
         -config=${kubevirt_testing_configuration} \
         -kubeconfig=${KUBECONFIG:?} \
         -container-tag=${DOCKER_TAG:?} \
