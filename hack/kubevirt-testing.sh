@@ -290,6 +290,7 @@ function run_tests() {
         additional_test_args+=" -apply-default-e2e-configuration=true"
     fi
     kubevirt_testing_configuration=${KUBEVIRT_TESTING_CONFIGURATION:-${kubevirt_testing_configuration_file}}
+    test_timeout="${TEST_TIMEOUT:-3h50m}"
     set -u
 
     eval tests.test -v=5 \
@@ -302,10 +303,10 @@ function run_tests() {
         -oc-path=${OC_PATH} \
         -kubectl-path=${KUBECTL_PATH} \
         -gocli-path="$(pwd)/cluster-up/cli.sh" \
-        -test.timeout 3h30m \
+        -test.timeout "${test_timeout}" \
         -ginkgo.noColor \
         -ginkgo.succinct \
-        -ginkgo.slowSpecThreshold=60 \
+        -ginkgo.slowSpecThreshold=180 \
         ${additional_test_args} \
         -junit-output=${ARTIFACT_DIR}/junit.functest.xml \
         -installed-namespace=kubevirt \
