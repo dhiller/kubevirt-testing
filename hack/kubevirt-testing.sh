@@ -87,13 +87,13 @@ function test_release() {
 function get_release_tag_for_xy() {
     release_xy="$1"
 
-    curl --fail -s 'https://api.github.com/repos/kubevirt/kubevirt/releases?per_page=100' |
+    curl --no-buffer --fail -s 'https://api.github.com/repos/kubevirt/kubevirt/releases?per_page=100' |
         jq -r '(.[].tag_name | select( test("-(rc|alpha|beta)") | not ) )' |
         sort -rV | grep "v$release_xy" | head -1
 }
 
 function deploy_latest_cdi_release() {
-    cdi_release_tag=$(curl -L -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
+    cdi_release_tag=$(curl --no-buffer --fail -L -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
     oc create -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-operator.yaml"
     oc create -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-cr.yaml"
 
@@ -102,7 +102,7 @@ function deploy_latest_cdi_release() {
 }
 
 function undeploy_latest_cdi_release() {
-    cdi_release_tag=$(curl -L -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
+    cdi_release_tag=$(curl --no-buffer --fail -L -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
     oc delete --ignore-not-found=true -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-cr.yaml" || true
     oc delete --ignore-not-found=true -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-operator.yaml"
 }
@@ -136,8 +136,8 @@ function deploy_release_test_setup() {
 
     oc create -f "$disk_manifest_file"
 
-    curl -L "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
-    curl -L "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
+    curl --no-buffer -L "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
+    curl --no-buffer -L "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
 
     deploy_latest_cdi_release
 
@@ -161,8 +161,8 @@ function undeploy_release_test_setup() {
 
     undeploy_latest_cdi_release
 
-    curl -L "${tagged_release_url}/kubevirt-cr.yaml" | oc delete --ignore-not-found=true -f - || true
-    curl -L "${tagged_release_url}/kubevirt-operator.yaml" | oc delete --ignore-not-found=true -f -
+    curl --no-buffer -L "${tagged_release_url}/kubevirt-cr.yaml" | oc delete --ignore-not-found=true -f - || true
+    curl --no-buffer -L "${tagged_release_url}/kubevirt-operator.yaml" | oc delete --ignore-not-found=true -f -
 
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 }
