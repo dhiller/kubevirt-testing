@@ -3,7 +3,8 @@ set -exuo pipefail
 
 env | grep KUBE
 
-export BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
+# see https://docs.ci.openshift.org/docs/architecture/step-registry/#available-environment-variables
+export BIN_DIR="${SHARED_DIR:?}/_out" && mkdir -p "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
 
 gcsweb_base_url="https://gcsweb.ci.kubevirt.io/gcs/kubevirt-prow"
