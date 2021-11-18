@@ -60,6 +60,20 @@ spec:
      cpuManagerPolicy: static
      cpuManagerReconcilePeriod: 5s
 EOF
+    wait_for_machineconfigpool_updated
+}
+
+function wait_for_machineconfigpool_updated() {
+    echo "waiting for update to start"
+    oc wait machineconfigpool worker --for condition=updating --timeout=5m
+
+    counter=3
+    set +e
+    for i in $(seq 1 $counter); do
+        echo "waiting for machineconfigpool to get updated (try $i)"
+        oc wait machineconfigpool worker --for condition=updated --timeout=30m && break
+        sleep 5
+    done
 }
 
 function wait_for_cpumanager_label() {
