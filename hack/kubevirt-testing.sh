@@ -6,6 +6,7 @@ env | grep KUBE
 # see https://docs.ci.openshift.org/docs/architecture/step-registry/#available-environment-variables
 export BIN_DIR="${SHARED_DIR:?}/_out" && mkdir -p "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
+curl_opts="--no-buffer --fail --silent --show-error --location"
 
 gcsweb_base_url="https://gcsweb.ci.kubevirt.io/gcs/kubevirt-prow"
 testing_resources=(disks-images-provider.yaml local-block-storage.yaml rbac-for-testing.yaml uploadproxy-nodeport.yaml kubevirt-config.yaml)
@@ -93,7 +94,7 @@ function test_release() {
 
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
 
-    curl -Lo "$BIN_DIR/tests.test" "${tagged_release_url}/tests.test"
+    curl ${curl_opts} -o "$BIN_DIR/tests.test" "${tagged_release_url}/tests.test"
     chmod +x "$BIN_DIR/tests.test"
 
     run_tests
@@ -102,13 +103,13 @@ function test_release() {
 function get_release_tag_for_xy() {
     release_xy="$1"
 
-    curl --no-buffer --fail -s 'https://api.github.com/repos/kubevirt/kubevirt/releases?per_page=100' |
+    curl ${curl_opts} 'https://api.github.com/repos/kubevirt/kubevirt/releases?per_page=100' |
         jq -r '(.[].tag_name | select( test("-(rc|alpha|beta)") | not ) )' |
         sort -rV | grep "v$release_xy" | head -1
 }
 
 function deploy_latest_cdi_release() {
-    cdi_release_tag=$(curl --no-buffer --fail -L -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
+    cdi_release_tag=$(curl ${curl_opts} -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
     oc create -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-operator.yaml"
     oc create -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-cr.yaml"
 
@@ -117,7 +118,7 @@ function deploy_latest_cdi_release() {
 }
 
 function undeploy_latest_cdi_release() {
-    cdi_release_tag=$(curl --no-buffer --fail -L -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
+    cdi_release_tag=$(curl ${curl_opts} -H'Accept: application/json' 'https://github.com/kubevirt/containerized-data-importer/releases/latest' | jq -r '.tag_name')
     oc delete --ignore-not-found=true -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-cr.yaml" || true
     oc delete --ignore-not-found=true -f "https://github.com/kubevirt/containerized-data-importer/releases/download/${cdi_release_tag}/cdi-operator.yaml"
 }
@@ -125,7 +126,7 @@ function undeploy_latest_cdi_release() {
 function deploy_testing_infra() {
     local testing_infra_url="$1"
     for testing_resource in "${testing_resources[@]}"; do
-        if curl --fail -Lo "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
+        if curl ${curl_opts} -o "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
             oc create -f "$BIN_DIR/${testing_resource}"
         elif [ "$testing_resource" != 'uploadproxy-nodeport.yaml' ] && [ "$testing_resource" != 'kubevirt-config.yaml' ]; then
             echo "required resource $testing_resource in $testing_infra_url missing"
@@ -137,7 +138,7 @@ function deploy_testing_infra() {
 function undeploy_testing_infra() {
     local testing_infra_url="$1"
     for testing_resource in "${testing_resources[@]}"; do
-        if curl --fail -Lo "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
+        if curl ${curl_opts} -o "$BIN_DIR/${testing_resource}" "${testing_infra_url}/${testing_resource}"; then
             oc delete --ignore-not-found=true -f "$BIN_DIR/${testing_resource}"
         fi
     done
@@ -151,8 +152,8 @@ function deploy_release_test_setup() {
 
     oc create -f "$disk_manifest_file"
 
-    curl --no-buffer -L "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
-    curl --no-buffer -L "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
+    curl ${curl_opts} "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
+    curl ${curl_opts} "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
 
     deploy_latest_cdi_release
 
@@ -176,8 +177,8 @@ function undeploy_release_test_setup() {
 
     undeploy_latest_cdi_release
 
-    curl --no-buffer -L "${tagged_release_url}/kubevirt-cr.yaml" | oc delete --ignore-not-found=true -f - || true
-    curl --no-buffer -L "${tagged_release_url}/kubevirt-operator.yaml" | oc delete --ignore-not-found=true -f -
+    curl ${curl_opts} "${tagged_release_url}/kubevirt-cr.yaml" | oc delete --ignore-not-found=true -f - || true
+    curl ${curl_opts} "${tagged_release_url}/kubevirt-operator.yaml" | oc delete --ignore-not-found=true -f -
 
     oc delete --ignore-not-found=true -f "$disk_manifest_file"
 }
@@ -195,7 +196,7 @@ function test_nightly() {
     release_date=$(get_latest_release_date_for_nightly)
     release_url="$(get_release_url_for_nightly "$release_date")"
 
-    curl -Lo "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
+    curl ${curl_opts} -o "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
     chmod +x "$BIN_DIR/tests.test"
 
     export DOCKER_PREFIX='quay.io/kubevirt'
@@ -212,7 +213,7 @@ function deploy_nightly_test_setup() {
 
     oc create -f "$disk_manifest_file"
 
-    curl -Lo "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
+    curl ${curl_opts} -o "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
     chmod +x "$BIN_DIR/tests.test"
 
     oc create -f "${release_url}/kubevirt-operator.yaml"
@@ -254,7 +255,7 @@ function undeploy_nightly_test_setup() {
 function get_release_tag_for_nightly() {
     release_url="$1"
     release_date="$2"
-    commit=$(curl -L "${release_url}/commit")
+    commit=$(curl ${curl_opts} "${release_url}/commit")
     echo "${release_date}_$(echo "${commit}" | cut -c 1-9)"
 }
 
@@ -266,7 +267,7 @@ function get_release_url_for_nightly() {
 
 function get_latest_release_date_for_nightly() {
     release_base_url="$gcsweb_base_url/devel/nightly/release/kubevirt/kubevirt"
-    release_date=$(curl -L "${release_base_url}/latest")
+    release_date=$(curl ${curl_opts} "${release_base_url}/latest")
     echo "${release_date}"
 }
 
